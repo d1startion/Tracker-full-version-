@@ -18,27 +18,35 @@ type Training struct {
 	personaldata.Personal
 }
 
-// Parse разбирает строку вида "3456,Ходьба,3h00m"
-func (t *Training) Parse(datastring string) (err error) {
-	parsStr := strings.Split(datastring, ",")
-	if len(parsStr) != 3 {
-		return errors.New("неверный формат данных")
+// Parse разбирает строку вида "3456,Walking,3h00m"
+func (t *Training) Parse(datastring string) error {
+	parts := strings.Split(datastring, ",")
+	if len(parts) != 3 {
+		return errors.New("invalid data format, expected 'steps,type,duration'")
 	}
 
 	// шаги
-	t.Steps, err = strconv.Atoi(parsStr[0])
-	if err != nil || t.Steps <= 0 {
-		return errors.New("неверный формат данных")
+	steps, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return fmt.Errorf("invalid steps value: %w", err)
 	}
+	if steps <= 0 {
+		return errors.New("steps must be greater than zero")
+	}
+	t.Steps = steps
 
 	// тип тренировки
-	t.TrainingType = parsStr[1]
+	t.TrainingType = parts[1]
 
 	// продолжительность
-	t.Duration, err = time.ParseDuration(parsStr[2])
-	if err != nil || t.Duration <= 0 {
-		return errors.New("неверный формат данных")
+	dur, err := time.ParseDuration(parts[2])
+	if err != nil {
+		return fmt.Errorf("invalid duration value: %w", err)
 	}
+	if dur <= 0 {
+		return errors.New("duration must be greater than zero")
+	}
+	t.Duration = dur
 
 	return nil
 }
@@ -55,15 +63,15 @@ func (t Training) ActionInfo() (string, error) {
 	case "Ходьба":
 		calories, err = spentenergy.WalkingSpentCalories(t.Steps, t.Weight, t.Height, t.Duration)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("failed to calculate walking calories: %w", err)
 		}
 	case "Бег":
 		calories, err = spentenergy.RunningSpentCalories(t.Steps, t.Weight, t.Height, t.Duration)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("failed to calculate running calories: %w", err)
 		}
 	default:
-		return "", errors.New("неизвестный тип тренировки")
+		return "", fmt.Errorf("unknown training type: %s", t.TrainingType)
 	}
 
 	str := fmt.Sprintf(

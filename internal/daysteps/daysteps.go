@@ -20,33 +20,36 @@ type DaySteps struct {
 // Parse разбирает строку вида "678,1h30m" в шаги и длительность
 func (ds *DaySteps) Parse(datastring string) error {
 	if datastring == "" {
-		return errors.New("пустая строка данных")
+		return errors.New("empty data string")
 	}
 
 	parts := strings.Split(datastring, ",")
 	if len(parts) != 2 {
-		return errors.New("неверный формат данных")
+		return errors.New("invalid data format, expected 'steps,duration'")
 	}
 
 	stepStr := parts[0]
 	durStr := parts[1]
 
-	// шаги: строгое целое положительное, без пробелов
+	// шаги
 	if strings.TrimSpace(stepStr) != stepStr {
-		return errors.New("неверный формат шагов")
+		return errors.New("steps string contains extra spaces")
 	}
 	steps, err := strconv.Atoi(stepStr)
-	if err != nil || steps <= 0 {
-		return errors.New("неверный формат шагов")
+	if err != nil {
+		return fmt.Errorf("invalid steps value: %w", err)
+	}
+	if steps <= 0 {
+		return errors.New("steps must be greater than zero")
 	}
 	ds.Steps = steps
 
-	// продолжительность: поддержка дробных значений (1.5h, 30.5m), но > 0
+	// длительность
 	if strings.Contains(durStr, " ") {
-		return errors.New("неверный формат продолжительности")
+		return errors.New("duration contains spaces")
 	}
 	if !strings.ContainsAny(durStr, "hm") {
-		return errors.New("неверный формат продолжительности")
+		return errors.New("invalid duration format, must contain 'h' or 'm'")
 	}
 
 	var total float64
@@ -55,7 +58,7 @@ func (ds *DaySteps) Parse(datastring string) error {
 	for rest != "" {
 		i := strings.IndexAny(rest, "hm")
 		if i == -1 {
-			return errors.New("неверный формат продолжительности")
+			return errors.New("invalid duration format")
 		}
 		numStr := rest[:i]
 		unit := rest[i : i+1]
@@ -63,7 +66,7 @@ func (ds *DaySteps) Parse(datastring string) error {
 
 		val, err := strconv.ParseFloat(numStr, 64)
 		if err != nil || val < 0 {
-			return errors.New("неверный формат продолжительности")
+			return fmt.Errorf("invalid duration value: %s", numStr)
 		}
 
 		switch unit {
@@ -72,12 +75,12 @@ func (ds *DaySteps) Parse(datastring string) error {
 		case "m":
 			total += val * float64(time.Minute)
 		default:
-			return errors.New("неверная единица измерения")
+			return fmt.Errorf("unknown duration unit: %s", unit)
 		}
 	}
 
 	if total <= 0 {
-		return errors.New("некорректная продолжительность")
+		return errors.New("duration must be greater than zero")
 	}
 
 	ds.Duration = time.Duration(math.Round(total))
@@ -85,10 +88,18 @@ func (ds *DaySteps) Parse(datastring string) error {
 }
 
 // ActionInfo возвращает строку с шагами, дистанцией и калориями
-// ActionInfo возвращает строку с шагами, дистанцией и калориями
 func (ds DaySteps) ActionInfo() (string, error) {
-	if ds.Steps <= 0 || ds.Duration <= 0 || ds.Weight <= 0 || ds.Height <= 0 {
-		return "", errors.New("недостаточно данных для расчёта")
+	if ds.Steps <= 0 {
+		return "", errors.New("steps must be greater than zero")
+	}
+	if ds.Duration <= 0 {
+		return "", errors.New("duration must be greater than zero")
+	}
+	if ds.Weight <= 0 {
+		return "", errors.New("weight must be greater than zero")
+	}
+	if ds.Height <= 0 {
+		return "", errors.New("height must be greater than zero")
 	}
 
 	// длина шага (в метрах)
