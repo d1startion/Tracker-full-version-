@@ -3,7 +3,6 @@ package daysteps
 import (
 	"errors"
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -48,42 +47,16 @@ func (ds *DaySteps) Parse(datastring string) error {
 	if strings.Contains(durStr, " ") {
 		return errors.New("duration contains spaces")
 	}
-	if !strings.ContainsAny(durStr, "hm") {
-		return errors.New("invalid duration format, must contain 'h' or 'm'")
+
+	dur, err := time.ParseDuration(durStr)
+	if err != nil {
+		return fmt.Errorf("invalid duration format: %w", err)
 	}
-
-	var total float64
-	rest := durStr
-
-	for rest != "" {
-		i := strings.IndexAny(rest, "hm")
-		if i == -1 {
-			return errors.New("invalid duration format")
-		}
-		numStr := rest[:i]
-		unit := rest[i : i+1]
-		rest = rest[i+1:]
-
-		val, err := strconv.ParseFloat(numStr, 64)
-		if err != nil || val < 0 {
-			return fmt.Errorf("invalid duration value: %s", numStr)
-		}
-
-		switch unit {
-		case "h":
-			total += val * float64(time.Hour)
-		case "m":
-			total += val * float64(time.Minute)
-		default:
-			return fmt.Errorf("unknown duration unit: %s", unit)
-		}
-	}
-
-	if total <= 0 {
+	if dur <= 0 {
 		return errors.New("duration must be greater than zero")
 	}
 
-	ds.Duration = time.Duration(math.Round(total))
+	ds.Duration = dur
 	return nil
 }
 
